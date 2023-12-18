@@ -15,9 +15,31 @@ namespace HADotNet.Core
         public static bool IsInitialized { get; internal set; }
 
         /// <summary>
+        /// Describes whether the HttpClient is shared between multiple client factories
+        /// </summary>
+        public static bool IsSharedHttpClient { get; internal set; }
+
+        /// <summary>
         /// Gets the <see cref="HttpClient" /> instance configured for this ClientFactory. To reconfigure the HttpClient, call <see cref="Initialize(string, string)" /> again.
         /// </summary>
         public static HttpClient Client { get; private set; }
+
+        public static Uri InstanceAddress { get; private set; }
+
+        public static string ApiKey { get; private set; }
+
+        /// <summary>
+        /// Initializes the client factory with a supplied HttpClient
+        /// </summary>
+        /// <param name="client"></param>
+        public static void Initialize(HttpClient client, Uri instanceAddress, string apiKey)
+        {
+            Client = client;
+            InstanceAddress = instanceAddress;
+            ApiKey = apiKey;
+            IsSharedHttpClient = true;
+            IsInitialized = true;
+        }
 
         /// <summary>
         /// Initializes the client factory with the specified <paramref name="instanceAddress" /> and <paramref name="apiKey" /> which are forwarded to clients instantiated from this factory.
@@ -26,6 +48,8 @@ namespace HADotNet.Core
         /// <param name="apiKey">The Home Assistant long-lived access token.</param>
         public static void Initialize(Uri instanceAddress, string apiKey)
         {
+            InstanceAddress = instanceAddress;
+            ApiKey = apiKey;
             Client = new HttpClient
             {
                 BaseAddress = instanceAddress,

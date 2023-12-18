@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -35,29 +36,38 @@ namespace HADotNet.Core
         /// <returns>The deserialized data of type <typeparamref name="T" />.</returns>
         protected async Task<T> Get<T>(string path) where T : class
         {
-            var resp = await Client.GetAsync(path);
-            resp.EnsureSuccessStatusCode();
-
-            if (typeof(T).IsArray && typeof(T).GetElementType().IsAssignableFrom(typeof(byte)))
+            var uri = new Uri(ClientFactory.InstanceAddress, path);
+            using (var requestMessage =
+                        new HttpRequestMessage(HttpMethod.Get, uri))
             {
-                // byte[]
-                return (await resp.Content.ReadAsByteArrayAsync()) as T;
+                requestMessage.Headers.Authorization =
+                    new AuthenticationHeaderValue("Bearer", ClientFactory.ApiKey);
+
+                //var resp = await Client.GetAsync(path);
+                var resp = await Client.SendAsync(requestMessage);
+                resp.EnsureSuccessStatusCode();
+
+                if (typeof(T).IsArray && typeof(T).GetElementType().IsAssignableFrom(typeof(byte)))
+                {
+                    // byte[]
+                    return (await resp.Content.ReadAsByteArrayAsync()) as T;
+                }
+
+                var respContent = await resp.Content?.ReadAsStringAsync();
+
+                if (string.IsNullOrWhiteSpace(respContent))
+                {
+                    throw new Exception($"Response content from endpoint {path} was empty.");
+                }
+
+                if (typeof(T).IsAssignableFrom(typeof(string)))
+                {
+                    // string
+                    return respContent as T;
+                }
+
+                return JsonConvert.DeserializeObject<T>(respContent);
             }
-
-            var respContent = await resp.Content?.ReadAsStringAsync();
-
-            if (string.IsNullOrWhiteSpace(respContent))
-            {
-                throw new Exception($"Response content from endpoint {path} was empty.");
-            }
-
-            if (typeof(T).IsAssignableFrom(typeof(string)))
-            {
-                // string
-                return respContent as T;
-            }
-
-            return JsonConvert.DeserializeObject<T>(respContent);
         }
 
         /// <summary>
@@ -70,22 +80,34 @@ namespace HADotNet.Core
         /// <returns></returns>
         protected async Task<T> Post<T>(string path, object body, bool isRawBody = false) where T : class
         {
-            var resp = await Client.PostAsync(path, new StringContent(isRawBody ? (body?.ToString() ?? "") : JsonConvert.SerializeObject(body ?? ""), Encoding.UTF8, JSON_MEDIA_TYPE));
-            resp.EnsureSuccessStatusCode();
-
-            var respContent = await resp.Content?.ReadAsStringAsync();
-
-            if (string.IsNullOrWhiteSpace(respContent))
+            var uri = new Uri(ClientFactory.InstanceAddress, path);
+            using (var requestMessage =
+                        new HttpRequestMessage(HttpMethod.Post, uri))
             {
-                throw new Exception($"Response content from endpoint {path} was empty.");
-            }
+                requestMessage.Headers.Authorization =
+                    new AuthenticationHeaderValue("Bearer", ClientFactory.ApiKey);
+                requestMessage.Content =
+                    new StringContent(isRawBody ? (body?.ToString() ?? "") :
+                    JsonConvert.SerializeObject(body ?? ""), Encoding.UTF8, JSON_MEDIA_TYPE);
 
-            if (typeof(T).IsAssignableFrom(typeof(string)))
-            {
-                return respContent as T;
-            }
+                //var resp = await Client.PostAsync(path, new StringContent(isRawBody ? (body?.ToString() ?? "") : JsonConvert.SerializeObject(body ?? ""), Encoding.UTF8, JSON_MEDIA_TYPE));
+                var resp = await Client.SendAsync(requestMessage);
+                resp.EnsureSuccessStatusCode();
 
-            return JsonConvert.DeserializeObject<T>(respContent);
+                var respContent = await resp.Content?.ReadAsStringAsync();
+
+                if (string.IsNullOrWhiteSpace(respContent))
+                {
+                    throw new Exception($"Response content from endpoint {path} was empty.");
+                }
+
+                if (typeof(T).IsAssignableFrom(typeof(string)))
+                {
+                    return respContent as T;
+                }
+
+                return JsonConvert.DeserializeObject<T>(respContent);
+            }
         }
 
         /// <summary>
@@ -96,22 +118,31 @@ namespace HADotNet.Core
         /// <returns>The deserialized data of type <typeparamref name="T" />.</returns>
         protected async Task<T> Delete<T>(string path) where T : class
         {
-            var resp = await Client.DeleteAsync(path);
-            resp.EnsureSuccessStatusCode();
-
-            var respContent = await resp.Content?.ReadAsStringAsync();
-
-            if (string.IsNullOrWhiteSpace(respContent))
+            var uri = new Uri(ClientFactory.InstanceAddress, path);
+            using (var requestMessage =
+                        new HttpRequestMessage(HttpMethod.Delete, uri))
             {
-                throw new Exception($"Response content from endpoint {path} was empty.");
-            }
+                requestMessage.Headers.Authorization =
+                    new AuthenticationHeaderValue("Bearer", ClientFactory.ApiKey);
 
-            if (typeof(T).IsAssignableFrom(typeof(string)))
-            {
-                return respContent as T;
-            }
+                //var resp = await Client.DeleteAsync(path);
+                var resp = await Client.SendAsync(requestMessage);
+                resp.EnsureSuccessStatusCode();
 
-            return JsonConvert.DeserializeObject<T>(respContent);
+                var respContent = await resp.Content?.ReadAsStringAsync();
+
+                if (string.IsNullOrWhiteSpace(respContent))
+                {
+                    throw new Exception($"Response content from endpoint {path} was empty.");
+                }
+
+                if (typeof(T).IsAssignableFrom(typeof(string)))
+                {
+                    return respContent as T;
+                }
+
+                return JsonConvert.DeserializeObject<T>(respContent);
+            }
         }
 
         /// <summary>
